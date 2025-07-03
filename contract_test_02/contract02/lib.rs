@@ -21,11 +21,51 @@ mod contract02 {
         feature = "std",
         derive(ink::storage::traits::StorageLayout)
     )]
+    #[derive(Clone)]
     pub struct Usuario{
         nombre:String,
         apellido:String,
         email:String,
         id:AccountId,
+        rol: Rol,
+    }
+    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[cfg_attr(
+        feature = "std",
+        derive(ink::storage::traits::StorageLayout)
+    )]
+    #[derive(Clone)]
+    pub enum Rol {
+        Comprador,
+        Vendedor,
+        Ambos,
+    }
+
+    /*
+    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[cfg_attr(
+        feature = "std",
+        derive(ink::storage::traits::StorageLayout)
+    )]
+    pub struct Producto{
+        nombre: String,
+        descripcoiN: String,
+        precio: f64,
+        stock: u64,
+        publicador: AccountId,
+    }
+    */
+
+    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[cfg_attr(
+        feature = "std",
+        derive(ink::storage::traits::StorageLayout)
+    )]
+
+    pub enum ErrorSistema {
+        UsuarioYaRegistrado,
+        UsuarioNoExiste,
+    
     }
 
     impl Contract02 {
@@ -36,22 +76,44 @@ mod contract02 {
         }
 
         #[ink(message)]
-        pub fn registrar_usuario(&mut self, nombre:String, apellido:String, email:String){
-            self._registrar_usuario(nombre, apellido, email, self.env().caller());
+        pub fn registrar_usuario(&mut self, nombre:String, apellido:String, email:String, rol:Rol) -> Result<(), ErrorSistema> {
+            self._registrar_usuario(nombre, apellido, email, rol)?;
+            Ok(())
         }
 
-        fn _registrar_usuario(&mut self, nombre:String, apellido:String, email:String, id:AccountId){
-            let _caller = self.env().caller();
-            self.usuarios.push(Usuario {nombre, apellido, email, id});
+        fn _registrar_usuario(&mut self, nombre:String, apellido:String, email:String, rol:Rol) -> Result<(), ErrorSistema>{
+            let id = self.env().caller();
+            
+            // Chequear que el usuario a registrar no exista en el sistema. (Solo registrar usuarios nuevos)
+            if self.usuarios.iter().any(|x| x.id == id) {
+                return Err(ErrorSistema::UsuarioYaRegistrado);
+            }
+            
+            self.usuarios.push(Usuario {nombre, apellido, email, id, rol});
+            Ok(())
         }
-    
         
-
+        /// Devuelve la lista de los usuarios
         #[ink(message)]
-        pub fn get_user(&self, id:AccountId) -> Usuario{
-            self.usuarios
+        pub fn get_users(&self) -> Vec<Usuario>{//Result por si la lista de usuarios está vacia???'
+            self.usuarios.clone()
+        }
+        
+        /// Devuelve un usuario en particular
+        #[ink(message)]
+        pub fn get_user(&self) -> Result<Usuario, ErrorSistema>{//result
+            self._get_user() 
         }
 
+        fn _get_user(&self)-> Result<Usuario, ErrorSistema>{
+            let _caller = self.env().caller(); //Se busca con el AccountId de la cuenta asociada.
+
+            if let Some(user) = self.usuarios.iter().find(|x| x.id == _caller){
+                Ok(user.clone())
+            } else {
+                Err(ErrorSistema::UsuarioNoExiste)
+            }
+        }
 
         /// Constructor that initializes the `bool` value to `false`.
         ///
@@ -75,6 +137,16 @@ mod contract02 {
             self.value
         }
 
+        /*
+        /// Determina si un usuario tiene el rol de vendedor.
+        fn usuario_puede_publicar(&self, id: AccountId) -> bool {
+        }
+
+        fn _usuario_puede_publicar(&self, id: AccountId) -> bool {
+            
+        }
+        */
+
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
@@ -95,6 +167,15 @@ mod contract02 {
         /// We test a simple use case of our contract.
         #[ink::test]
         fn it_works() {
+            let mut contract02 = Contract02::new(false);
+            assert_eq!(contract02.get(), false);
+            contract02.flip();
+            assert_eq!(contract02.get(), true);
+        }
+        //Test de devuelve un usurio
+        #[ink::test]
+        fn it_works_2() {
+            
             let mut contract02 = Contract02::new(false);
             assert_eq!(contract02.get(), false);
             contract02.flip();
