@@ -12,7 +12,7 @@ mod contract02 {
     pub struct Contract02 { 
         /// Stores a single `bool` value on the storage.
         value: bool,
-        usuarios: Vec<Usuario>,
+        usuarios: Mapping<AccountId, Usuario>,
     }
 
     //Struct usuario
@@ -49,11 +49,26 @@ mod contract02 {
     )]
     pub struct Producto{
         nombre: String,
-        descripcoiN: String,
+        descripcion: String,
         precio: f64,
         stock: u64,
         publicador: AccountId,
     }
+    */
+
+    /* ORDEN DE COMPRA 
+    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[cfg_attr(
+        feature = "std",
+        derive(ink::storage::traits::StorageLayout)
+    )]
+
+    pub struct OrdenDeCompra {
+        productos: Vec<Producto>,
+        id_compra: u64 o String o qué ????
+        direccion_de_envio: String,
+    } 
+    
     */
 
     #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -89,7 +104,7 @@ mod contract02 {
                 return Err(ErrorSistema::UsuarioYaRegistrado);
             }
             
-            self.usuarios.push(Usuario {nombre, apellido, email, id, rol});
+            self.usuarios.try_insert(id, Usuario {nombre, apellido, email, id, rol});
             Ok(())
         }
         
@@ -114,6 +129,19 @@ mod contract02 {
                 Err(ErrorSistema::UsuarioNoExiste)
             }
         }
+
+        //  #[ink(message)]
+        //  pub fn modificar_rol(&self, nuevo_rol:Rol)->Result<(), ErrorSistema>{
+        //     self._modificar_rol(nuevo_rol)?
+        //  }
+
+        //  fn _modificar_rol(&mut self, nuevo_rol:Rol) {
+        //     if let Some(user) = self.usuarios.get_mut(self.env().caller()){
+        //         user.rol = nuevo_rol;
+        //         return Ok(());
+        //     }
+        //     return Err(ErrorSistema::UsuarioNoExiste);
+        //  }
 
         /// Constructor that initializes the `bool` value to `false`.
         ///
@@ -147,6 +175,36 @@ mod contract02 {
         }
         */
 
+        
+        //VERIFICADORES
+       /*  #[ink(message)]
+        pub fn es_vendedor(&self) -> bool {
+            let caller = self.env().caller();
+            if let Some(user) = self.usuarios.get(caller) {
+                match user.rol {
+                    Rol::Vendedor | Rol::Ambos => true,
+                    _ => false,
+                }
+            } else {
+                false // Si el usuario no existe, no es vendedor.
+            }
+        }
+
+        #[ink(message)]
+        pub fn es_comprador(&self) -> bool {
+            let caller = self.env().caller();
+            if let Some(user) = self.usuarios.get(caller) {
+                match user.rol {
+                    Rol::Comprador | Rol::Ambos => true,
+                    _ => false,
+                }
+            } else {
+                false // Si el usuario no existe, no es comprador.
+            }
+        } */
+
+        
+
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
@@ -156,6 +214,9 @@ mod contract02 {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
+        // Librerías para generar un AccountId
+        use sp_core::crypto::AccountId32;
+        use rand::rngs::OsRng;
 
         /// We test if the default constructor does its job.
         #[ink::test]
@@ -172,14 +233,36 @@ mod contract02 {
             contract02.flip();
             assert_eq!(contract02.get(), true);
         }
+        
+        /*
+        fn generar_account_id(&self) -> AccountId {
+            let mut rng = OsRng {};
+            let keypair: sp_core::sr25519::Pair = sp_core::sr25519::Pair::generate_with(&mut rng);
+            keypair.public().into()
+        }
+        */
+
         //Test de devuelve un usurio
         #[ink::test]
-        fn it_works_2() {
-            
+        fn test_obtener_usuario() {
+            let usuario = Usuario {
+                nombre: "Tomás".to_string(),
+                apellido: "Perez".to_string(),
+                email: "b@mail.com".to_string(),
+                id: "bChVMyjX9ezHYc4TSknGWKibZxLQJcSfqmmXqSUZecejjXZ".to_string(), //generar_account_id()
+                rol: Rol::Comprador,
+            };
             let mut contract02 = Contract02::new(false);
-            assert_eq!(contract02.get(), false);
-            contract02.flip();
-            assert_eq!(contract02.get(), true);
+
+            test::set_caller::<ink::env::DefaultEnvironment>(usuario.id.clone()); 
+            //establece el caller del usuario
+            
+            assert!(contract02.registrar_usuario(usuario.nombre.clone(), usuario.apellido.clone(), usuario.email.clone(), usuario.rol.clone()).is_ok());
+            //Si cumple el assert sigue con el test
+
+            let user = contract02.get_user();
+            //Devuelve Ok(UsuarioBuscado) si el usuario se encuentra en la lista de usuarios registrados
+            assert_eq!(usuario, Ok(user));
         }
     }
 
