@@ -2,9 +2,9 @@
 
 #[ink::contract]
 mod contract02 { 
-    use ink::prelude::vec::Vec;
     use ink::prelude::{format, string::String};
     use ink::storage::Mapping;
+    
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
@@ -12,7 +12,7 @@ mod contract02 {
     pub struct Contract02 { 
         /// Stores a single `bool` value on the storage.
         value: bool,
-        usuarios: Mapping<AccountId, Usuario>,
+        usuarios: Mapping<AccountId, Usuario>, //Está bien usar un mapping acá??? o tendríamos que usar un Vec?
     }
 
     //Struct usuario
@@ -21,7 +21,7 @@ mod contract02 {
         feature = "std",
         derive(ink::storage::traits::StorageLayout)
     )]
-    #[derive(Clone)]
+    #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Usuario{
         nombre:String,
         apellido:String,
@@ -34,7 +34,7 @@ mod contract02 {
         feature = "std",
         derive(ink::storage::traits::StorageLayout)
     )]
-    #[derive(Clone)]
+    #[derive(Clone, PartialEq, Eq, Debug)]
     pub enum Rol {
         Comprador,
         Vendedor,
@@ -87,7 +87,7 @@ mod contract02 {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(init_value: bool) -> Self {
-            Self { value: init_value, usuarios: Vec::new() }
+            Self { value: init_value, usuarios: Mapping::default() } //Inicializamos con default o con new??
         }
 
         #[ink(message)]
@@ -96,34 +96,36 @@ mod contract02 {
             Ok(())
         }
 
+
+        //Siempre lo marca como ya registrado (por más de que no lo esté) ????
         fn _registrar_usuario(&mut self, nombre:String, apellido:String, email:String, rol:Rol) -> Result<(), ErrorSistema>{
-            let id = self.env().caller();
+            let id = self.env().caller(); // Se obtiene el AccountId del usuario que llama a la función.
             
             // Chequear que el usuario a registrar no exista en el sistema. (Solo registrar usuarios nuevos)
-            if self.usuarios.iter().any(|x| x.id == id) {
+            if self.usuarios.get(&id).is_some() { //Busca match en el mapping.
                 return Err(ErrorSistema::UsuarioYaRegistrado);
-            }
+            }                
             
-            self.usuarios.try_insert(id, Usuario {nombre, apellido, email, id, rol});
+            self.usuarios.insert(id, &Usuario {nombre, apellido, email, id, rol});
             Ok(())
         }
         
-        /// Devuelve la lista de los usuarios
-        #[ink(message)]
-        pub fn get_users(&self) -> Vec<Usuario>{//Result por si la lista de usuarios está vacia???'
-            self.usuarios.clone()
-        }
+        /// Devuelve la lista de los usuarios ?????? Cómo devolver un mapping???
+        /*#[ink(message)]
+        pub fn get_users(&self) -> Mapping<AccountId, Usuario> { // Result por si la lista de usuarios está vacia???'
+            self.usuarios
+        }*/
         
         /// Devuelve un usuario en particular
         #[ink(message)]
-        pub fn get_user(&self) -> Result<Usuario, ErrorSistema>{//result
+        pub fn get_user(&self) -> Result<Usuario, ErrorSistema>{ // Result
             self._get_user() 
         }
 
         fn _get_user(&self)-> Result<Usuario, ErrorSistema>{
-            let _caller = self.env().caller(); //Se busca con el AccountId de la cuenta asociada.
+            let _caller = self.env().caller(); // Se busca con el AccountId de la cuenta asociada.
 
-            if let Some(user) = self.usuarios.iter().find(|x| x.id == _caller){
+            if let Some(user) = self.usuarios.get(&_caller) {
                 Ok(user.clone())
             } else {
                 Err(ErrorSistema::UsuarioNoExiste)
@@ -165,17 +167,6 @@ mod contract02 {
             self.value
         }
 
-        /*
-        /// Determina si un usuario tiene el rol de vendedor.
-        fn usuario_puede_publicar(&self, id: AccountId) -> bool {
-        }
-
-        fn _usuario_puede_publicar(&self, id: AccountId) -> bool {
-            
-        }
-        */
-
-        
         //VERIFICADORES
        /*  #[ink(message)]
         pub fn es_vendedor(&self) -> bool {
@@ -202,8 +193,6 @@ mod contract02 {
                 false // Si el usuario no existe, no es comprador.
             }
         } */
-
-        
 
     }
 
@@ -263,6 +252,7 @@ mod contract02 {
             let user = contract02.get_user();
             //Devuelve Ok(UsuarioBuscado) si el usuario se encuentra en la lista de usuarios registrados
             assert_eq!(usuario, Ok(user));
+            /* */
         }
     }
 
